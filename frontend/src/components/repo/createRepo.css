@@ -1,0 +1,141 @@
+.create-repo-wrapper {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #0d1117;
+  color: #c9d1d9;
+  padding-top: 40px;
+}
+
+.create-repo-container {
+  width: 100%;
+  max-width: 750px;
+  padding: 0 20px;
+  text-align: left;
+}
+
+.create-repo-header {
+  margin-bottom: 30px;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 20px;
+  text-align: left;
+}
+
+.create-repo-header h2 {
+  font-size: 24px;
+  font-weight: 400;
+  margin-bottom: 5px;
+  color: #c9d1d9;
+}
+
+.create-repo-header p {
+  color: #8b949e;
+  font-size: 14px;
+}
+
+.create-repo-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.input-group label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.required {
+  color: #f85149;
+}
+
+.optional {
+  font-weight: 400;
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.dark-input {
+  background-color: #010409;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  height: 32px;
+  width: 100%;
+  max-width: 350px;
+  outline: none;
+}
+
+.dark-input:focus {
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+}
+
+.divider {
+  border: 0;
+  height: 1px;
+  background-color: #30363d;
+  margin: 20px 0;
+}
+
+.visibility-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.radio-option input[type="radio"] {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.radio-option label {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.radio-option label strong {
+  font-size: 14px;
+  color: #c9d1d9;
+}
+
+.radio-option label span {
+  font-size: 12px;
+  color: #8b949e;
+  margin-top: 2px;
+}
+
+.create-submit-btn {
+  background-color: #238636;
+  color: #ffffff;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+  border-radius: 6px;
+  padding: 5px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+  margin-top: 10px;
+}
+
+.create-submit-btn:hover {
+  background-color: #2ea043;
+}

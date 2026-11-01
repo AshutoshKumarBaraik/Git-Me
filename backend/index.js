@@ -4,13 +4,14 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const express = require("express");
 const dotenv = require("dotenv");
-const cors = require("cors"); //cors = cross origin resource sharing : used for security reasons
+const cors = require("cors");
 const mongoose = require("mongoose");
-const bodyParser = require("body-parser"); // help with data coming from request and sending back data as response
+const bodyParser = require("body-parser");
 const http = require("http");
 const { Server } = require("socket.io");
+const mainRouter = require("./routes/main.router");
 
-const yargs = require("yargs/yargs");
+const yargs = require("yargs");
 const { hideBin } = require("yargs/helpers");
 
 const { initRepo } = require("./controllers/init");
@@ -19,12 +20,26 @@ const { commitRepo } = require("./controllers/commit");
 const { pushRepo } = require("./controllers/push");
 const { pullRepo } = require("./controllers/pull");
 const { revertRepo } = require("./controllers/revert");
+const { addRemote } = require("./controllers/remote");
 
 dotenv.config();
 
-const argv = yargs(hideBin(process.argv))
-  .command("start", "Start a new server", {}, startServer)
-  .command("init", "Initialize a new repository", {}, initRepo)
+yargs(hideBin(process.argv))
+  .command("start", "Starts a new server", {}, startServer)
+  .command("init", "Initialise a new repository", {}, initRepo)
+  .command(
+    "remote add <url>",
+    "Link your local repository to a remote server",
+    (yargs) => {
+      yargs.positional("url", {
+        describe: "The URL of the remote repository",
+        type: "string",
+      });
+    },
+    (argv) => {
+      addRemote(argv.url);
+    },
+  )
   .command(
     "add <file>",
     "Add a file to the repository",
@@ -40,7 +55,7 @@ const argv = yargs(hideBin(process.argv))
   )
   .command(
     "commit <message>",
-    "commit the staged files",
+    "Commit the staged files",
     (yargs) => {
       yargs.positional("message", {
         describe: "Commit message",
@@ -58,11 +73,13 @@ const argv = yargs(hideBin(process.argv))
     "Revert to a specific commit",
     (yargs) => {
       yargs.positional("commitID", {
-        describe: "Commit ID to revert to",
+        describe: "Comit ID to revert to",
         type: "string",
       });
     },
-    revertRepo,
+    (argv) => {
+      revertRepo(argv.commitID);
+    },
   )
   .demandCommand(1, "You need at least one command")
   .help().argv;
@@ -83,12 +100,9 @@ function startServer() {
 
   app.use(cors({ origin: "*" }));
 
-  app.get("/", (req, res) => {
-    res.send("Welcome!");
-  });
+  app.use("/", mainRouter);
 
   let user = "test";
-
   const httpServer = http.createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -111,8 +125,7 @@ function startServer() {
 
   db.once("open", async () => {
     console.log("CRUD operations called");
-
-    //CRUD operations
+    // CRUD operations
   });
 
   httpServer.listen(port, () => {
