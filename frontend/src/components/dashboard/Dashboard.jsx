@@ -1,116 +1,104 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import "./Dashboard.css";
 import Navbar from "../Navbar";
+import { API_URL } from "../../config";
+import "./Dashboard.css";
+
+const RepoLink = ({ repo, showOwner }) => (
+  <Link to={`/repo/${repo._id}`} className="repo-link">
+    <span className="repo-link-name">
+      {showOwner && repo.owner?.username ? `${repo.owner.username} / ` : ""}
+      {repo.name}
+    </span>
+    {repo.description && <span className="repo-link-desc">{repo.description}</span>}
+  </Link>
+);
 
 const Dashboard = () => {
-  let [repositories, setRepositories] = useState([]);
-  let [searchQuery, setSearchQuery] = useState("");
-  let [suggestedRepositories, setSuggestedRepositories] = useState([]);
-
-  // 1. FIXED: Changed "" to [] so searchResults starts as an array.
-  // This prevents the .map() crash on the very first render.
-  let [searchResults, setSearchResults] = useState([]);
+  const [repositories, setRepositories] = useState([]);
+  const [suggested, setSuggested] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
 
-    const fetchRepositories = async () => {
+    const load = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:3000/repo/user/${userId}`,
-        );
-        const data = await response.json();
-
-        // Already correct: Ensures it defaults to an array
-        setRepositories(data.repositories || []);
+        const [mine, all] = await Promise.all([
+          fetch(`${API_URL}/repo/user/${userId}`).then((r) => r.json()),
+          fetch(`${API_URL}/repo/all`).then((r) => r.json()),
+        ]);
+        setRepositories(mine.repositories || []);
+        setSuggested((all.repositories || []).filter((r) => r.visibility !== false));
       } catch (err) {
-        console.error("Error while fetching repositories : ", err);
+        console.error("Error while fetching repositories:", err);
+      } finally {
+        setLoading(false);
       }
     };
-
-    const fetchSuggestedRepositories = async () => {
-      try {
-        const response = await fetch(`http://localhost:3000/repo/all`);
-        const data = await response.json();
-
-        // ADD THIS LINE TO DEBUG:
-        console.log("Raw Suggested Data:", data);
-
-        setSuggestedRepositories(data.repositories || []);
-      } catch (err) {
-        console.error("Error while fetching repositories : ", err);
-      }
-    };
-
-    fetchRepositories();
-    fetchSuggestedRepositories();
+    load();
   }, []);
 
-  useEffect(() => {
-    if (searchQuery == "") {
-      setSearchResults(repositories);
-    } else {
-      const filteredRepo = repositories.filter((repo) =>
-        repo.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      setSearchResults(filteredRepo);
-    }
-  }, [searchQuery, repositories, suggestedRepositories]);
+  const results = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return q ? repositories.filter((r) => r.name.toLowerCase().includes(q)) : repositories;
+  }, [searchQuery, repositories]);
 
   return (
     <>
       <Navbar />
-      <section id="dashboard">
-        <aside>
-          <h3>Suggested Repositories</h3>
-          {suggestedRepositories?.map((repo) => {
-            return (
-              <div key={repo._id || repo.name}>
-                <Link to={`/repo/${repo._id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                  <h4 style={{ cursor: "pointer" }}>{repo.name}</h4>
-                </Link>
-                {/* <h4>{repo.description}</h4> */}
-              </div>
-            );
-          })}
+      <div className="page dashboard">
+        <aside className="dash-col dash-side card">
+          <h3>Explore repositories</h3>
+          {suggested.length === 0 && <p className="muted small">Nothing to explore yet.</p>}
+          {suggested.slice(0, 12).map((repo) => (
+            <RepoLink key={repo._id} repo={repo} showOwner />
+          ))}
         </aside>
-        <main>
-          <h2>Your Repositories</h2>
-          <div id="search">
-            <input
-              type="text"
-              value={searchQuery}
-              placeholder="Search..."
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+
+        <main className="dash-col dash-main">
+          <div className="dash-head">
+            <h2>Your repositories</h2>
+            <Link to="/create" className="btn btn-primary">New</Link>
           </div>
-          {searchResults.map((repo) => {
-            return (
-              <div key={repo._id}>
-                <Link to={`/repo/${repo._id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                  <h4 style={{ cursor: "pointer" }}>{repo.name}</h4>
-                </Link>
-                {/* <h4>{repo.description}</h4> */}
+          <input
+            className="input"
+            type="search"
+            value={searchQuery}
+            placeholder="Find a repository…"
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <div className="repo-list">
+            {loading && <p className="muted">Loading…</p>}
+            {!loading && results.length === 0 && (
+              <div className="empty card">
+                <p>{searchQuery ? "No repositories match your search." : "You don't have any repositories yet."}</p>
+                {!searchQuery && <Link to="/create" className="btn btn-primary">Create your first repository</Link>}
               </div>
-            );
-          })}
+            )}
+            {results.map((repo) => (
+              <div className="repo-card card" key={repo._id}>
+                <div className="repo-card-top">
+                  <Link to={`/repo/${repo._id}`} className="repo-card-name">{repo.name}</Link>
+                  <span className="pill">{repo.visibility ? "Public" : "Private"}</span>
+                </div>
+                <p className="muted small">{repo.description || "No description provided."}</p>
+              </div>
+            ))}
+          </div>
         </main>
-        <aside>
-          <h3>Upcoming Events</h3>
-          <ul>
-            <li>
-              <p>Tech Conference - Dec 15</p>
-            </li>
-            <li>
-              <p>Developer Meetup - Dec 25</p>
-            </li>
-            <li>
-              <p>React Summit - Jan 5</p>
-            </li>
+
+        <aside className="dash-col dash-side card">
+          <h3>Upcoming events</h3>
+          <ul className="events">
+            <li><strong>Tech Conference</strong><span>Dec 15</span></li>
+            <li><strong>Developer Meetup</strong><span>Dec 25</span></li>
+            <li><strong>React Summit</strong><span>Jan 5</span></li>
           </ul>
         </aside>
-      </section>
+      </div>
     </>
   );
 };

@@ -2,86 +2,117 @@ const fs = require("fs").promises;
 const path = require("path");
 const { s3, S3_BUCKET } = require("../config/aws-config");
 
-async function pullRepo() {
+// NEW: Helper function to recursively find all files in a folder
+async function getAllFiles(dirPath, arrayOfFiles = [], basePath = dirPath) {
+  const files = await fs.readdir(dirPath);
+
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file);
+    const stat = await fs.stat(fullPath);
+
+    if (stat.isDirectory()) {
+      // If it's a folder, search inside it
+      arrayOfFiles = await getAllFiles(fullPath, arrayOfFiles, basePath);
+    } else {
+      // If it's a file, save the absolute path (to read it) and relative path (for S3 key)
+      const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/');
+      arrayOfFiles.push({ absolute: fullPath, relative: relativePath });
+    }
+  }
+  return arrayOfFiles;
+}
+
+async function pushRepo() {
   const repoPath = path.resolve(process.cwd(), ".gitMe");
   const commitsPath = path.join(repoPath, "commits");
   const configPath = path.join(repoPath, "config.json");
 
   try {
-    // 1. CHANGED: Read remoteUrl to know which database to talk to
-    // FROM: Hardcoding S3 fetches with no knowledge of the specific repository
-    // TO: Reading the user's saved config.json
     const configData = await fs.readFile(configPath, "utf-8");
     const config = JSON.parse(configData);
+
+    // 1. CHANGED: Extract remoteUrl instead of repoId
+    // FROM:
+    // TO: const remoteUrl = config.remoteUrl;
+    // WHY: We switched to 'remote add <url>' so end users never have to handle raw database IDs.
     const remoteUrl = config.remoteUrl;
 
+    // 2. CHANGED: Graceful exit for local-only users
+    // FROM: if (!repositoryId) { console.error("No repository ID found..."); return; }
+    // TO: A standard Git-style message that doesn't treat the lack of a remote as a crash.
+    // WHY: This ensures a user can loop 'init', 'add', and 'commit' indefinitely offline without being forced to add a remote.
     if (!remoteUrl) {
       console.log("fatal: No remote configured.");
       console.log(
-        "To pull from the cloud, first run: node index.js remote add <url>",
+        "To push to the cloud, first run: node index.js remote add <url>",
       );
       return;
     }
 
-    // 2. CHANGED: Fetch repository history from MongoDB instead of guessing from S3
-    // We adjust the URL to ensure it hits your standard GET route, assuming remoteUrl was the /update route
-    const fetchUrl = remoteUrl.replace("/update", "");
-    const response = await fetch(fetchUrl);
+    const commitDirs = await fs.readdir(commitsPath);
 
-    if (!response.ok) {
-      console.error("Failed to fetch repository data from server.");
-      return;
-    }
+    const pushedCommits = [];
 
-    const repoData = await response.json();
-    const commits = repoData.content;
+    for (const commitDir of commitDirs) {
+      const commitPath = path.join(commitsPath, commitDir);
+      
+      // CHANGED: Use recursive helper to get all nested files
+      const allFiles = await getAllFiles(commitPath);
 
-    if (!commits || commits.length === 0) {
-      console.log("Repository is empty. Nothing to pull.");
-      return;
-    }
+      const commitData = {
+        commitID: commitDir,
+        files: [],
+      };
 
-    // 3. CHANGED: Loop through the exact commits returned by MongoDB
-    // FROM: const data = await s3.listObjectsV2(...)
-    // TO: Iterating over our database array to ensure we only get this repo's files
-    for (const commit of commits) {
-      const commitDir = path.join(commitsPath, commit.commitID);
-      await fs.mkdir(commitDir, { recursive: true });
+      for (const fileObj of allFiles) {
+        // Read file using its absolute path
+        const fileContent = await fs.readFile(fileObj.absolute);
 
-      // We use the nested files array we set up in repoModel.js
-      for (const file of commit.files) {
+        // Use the relative path for S3 and MongoDB
+        const s3Key = `commits/${commitDir}/${fileObj.relative}`;
         const params = {
           Bucket: S3_BUCKET,
-          Key: `commits/${commit.commitID}/${file.name}`,
+          Key: s3Key,
+          Body: fileContent,
         };
 
-        const fileContent = await s3.getObject(params).promise();
+        await s3.upload(params).promise();
 
-        // Save into the local hidden commit snapshot folder
-        await fs.writeFile(path.join(commitDir, file.name), fileContent.Body);
+        commitData.files.push({
+          name: fileObj.relative,
+          s3Url: `https://${S3_BUCKET}.s3.amazonaws.com/${s3Key}`,
+        });
       }
+      pushedCommits.push(commitData);
     }
 
-    // 4. NEW: Restore the working directory
-    // WHY: Pulling files into the hidden .gitMe folder is useless if the user can't see their code!
-    // We grab the last commit in the array (the newest one) and copy its files to process.cwd()
-    const latestCommit = commits[commits.length - 1];
-    const latestCommitDir = path.join(commitsPath, latestCommit.commitID);
-    const filesToRestore = await fs.readdir(latestCommitDir);
+    console.log("All commits pushed to S3.");
 
-    for (const file of filesToRestore) {
-      await fs.copyFile(
-        path.join(latestCommitDir, file),
-        path.join(process.cwd(), file),
+    // 3. CHANGED: Send the PUT request directly to the remote URL
+    // FROM: fetch(`http://localhost:3000/repo/update/${repositoryId}`, { ... })
+    // TO: fetch(remoteUrl, { ... })
+    // WHY: The CLI now dynamically sends the update to exactly where the user pointed it during the 'remote add' command.
+    const response = await fetch(remoteUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: pushedCommits,
+        description: "Updated via CLI push",
+      }),
+    });
+
+    if (response.ok) {
+      console.log(
+        "MongoDB updated successfully! React can now see your files.",
       );
+    } else {
+      console.error("Failed to update MongoDB.");
     }
-
-    console.log(
-      "All commits pulled from S3 and working directory updated successfully.",
-    );
   } catch (err) {
-    console.error("Unable to pull : ", err);
+    console.error("Error pushing to S3 : ", err);
   }
 }
 
-module.exports = { pullRepo };
+module.exports = { pushRepo };

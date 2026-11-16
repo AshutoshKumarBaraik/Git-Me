@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Repository = require("../models/repoModel");
 const User = require("../models/userModel");
 const Issue = require("../models/issueModel");
+const vectorStore = require("../services/vectorStore");
+const { indexRepository } = require("../services/repoIndexer");
 
 /**
  * Creates a new repository in the database
@@ -78,7 +80,10 @@ async function getAllRepositories(req, res) {
 async function fetchRepositoryById(req, res) {
   const { id } = req.params;
   try {
-    const repository = await Repository.findById({ _id: id })
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid repository ID!" });
+    }
+    const repository = await Repository.findById(id)
       .populate("owner")
       .populate("issues");
 
@@ -165,13 +170,21 @@ async function pushToRepo(req, res) {
     }
 
     // 3. Push the new commit metadata into the content array
-    repository.content.push(...content);
+    //    (skip commits that were already pushed before, so re-pushing is safe)
+    const known = new Set(repository.content.map((c) => c.commitID));
+    const fresh = (content || []).filter((c) => !known.has(c.commitID));
+    repository.content.push(...fresh);
 
     if (description) {
       repository.description = description;
     }
 
     const updatedRepository = await repository.save();
+
+    // Index the project for the chatbot in the background (SRS is optional).
+    indexRepository(updatedRepository).catch((e) =>
+      console.error("Indexing failed:", e.message),
+    );
 
     res.json({
       message: "Repository updated successfully!",
@@ -219,6 +232,7 @@ async function deleteRepositoryById(req, res) {
     if (!repository) {
       return res.status(404).json({ error: "Repository not found!" });
     }
+    await vectorStore.deleteRepoData(id);
 
     res.json({ message: "Repository deleted successfully!" });
   } catch (err) {

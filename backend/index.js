@@ -21,6 +21,7 @@ const { pushRepo } = require("./controllers/push");
 const { pullRepo } = require("./controllers/pull");
 const { revertRepo } = require("./controllers/revert");
 const { addRemote } = require("./controllers/remote");
+const { showLogs } = require("./controllers/log");
 
 dotenv.config();
 
@@ -41,16 +42,16 @@ yargs(hideBin(process.argv))
     },
   )
   .command(
-    "add <file>",
-    "Add a file to the repository",
+    "add <path>",
+    "Add a file or folder to the repository",
     (yargs) => {
-      yargs.positional("file", {
-        describe: "File to add to the staging area",
+      yargs.positional("path", {
+        describe: "File or folder to add to the staging area",
         type: "string",
       });
     },
     (argv) => {
-      addRepo(argv.file);
+      addRepo(argv.path);
     },
   )
   .command(
@@ -81,6 +82,7 @@ yargs(hideBin(process.argv))
       revertRepo(argv.commitID);
     },
   )
+  .command("log", "Show the commit history and messages", {}, showLogs)
   .demandCommand(1, "You need at least one command")
   .help().argv;
 
@@ -93,8 +95,9 @@ function startServer() {
 
   const mongoURI = process.env.MONGODB_URI;
 
+  // Set DB_NAME in .env to force a database (userController uses "gitMe").
   mongoose
-    .connect(mongoURI)
+    .connect(mongoURI, process.env.DB_NAME ? { dbName: process.env.DB_NAME } : undefined)
     .then(() => console.log("MongoDB connected!"))
     .catch((err) => console.error("Unable to connect : ", err));
 
