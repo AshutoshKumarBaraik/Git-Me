@@ -1,42 +1,39 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Navbar from "../Navbar"; // Adjust path if Navbar is located elsewhere
+import Navbar from "../Navbar";
+import { API_URL } from "../../config";
 import "./createRepo.css";
 
 const CreateRepo = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const ownerId = localStorage.getItem("userId");
+    if (!ownerId) return navigate("/auth");
 
-    if (!ownerId) {
-      alert("User not authenticated. Please log in.");
-      return window.location.href = "/auth";
-    }
-
+    setError("");
+    setSubmitting(true);
     try {
-      // Assuming your backend routes are prefixed with /repo
-      const response = await axios.post("http://localhost:3000/repo/create", {
-        name: name,
-        description: description,
-        visibility: isPublic, 
+      const res = await axios.post(`${API_URL}/repo/create`, {
+        name: name.trim(),
+        description,
+        visibility: isPublic,
         owner: ownerId,
         content: [],
-        issues: []
+        issues: [],
       });
-
-      if (response.status === 201) {
-        // Redirect back to profile after successful creation
-        navigate("/profile");
-      }
-    } catch (error) {
-      console.error("Error creating repository:", error);
-      alert(error.response?.data?.error || "Failed to create repository");
+      if (res.status === 201) navigate(`/repo/${res.data.repositoryID}`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to create repository");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -47,69 +44,50 @@ const CreateRepo = () => {
         <div className="create-repo-container">
           <div className="create-repo-header">
             <h2>Create a new repository</h2>
-            <p>A repository contains all project files, including the revision history. Already have a project repository elsewhere?</p>
+            <p>A repository contains all project files, including the revision history. Push an optional <code>SRS.md</code> and the assistant will use it to recommend features.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="create-repo-form">
+            {error && <div className="form-error" role="alert">{error}</div>}
+
             <div className="input-group">
               <label htmlFor="repo-name">Repository name <span className="required">*</span></label>
-              <input
-                id="repo-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="dark-input"
-              />
+              <input id="repo-name" className="input" type="text" required
+                value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="input-group">
               <label htmlFor="description">Description <span className="optional">(optional)</span></label>
-              <input
-                id="description"
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="dark-input"
-              />
+              <input id="description" className="input" type="text"
+                value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
 
             <hr className="divider" />
 
             <div className="visibility-group">
-              <div className="radio-option">
-                <input
-                  type="radio"
-                  id="public"
-                  name="visibility"
-                  checked={isPublic === true}
-                  onChange={() => setIsPublic(true)}
-                />
-                <label htmlFor="public">
+              <label className="radio-option" htmlFor="public">
+                <input type="radio" id="public" name="visibility"
+                  checked={isPublic} onChange={() => setIsPublic(true)} />
+                <span>
                   <strong>Public</strong>
-                  <span>Anyone on the internet can see this repository. You choose who can commit.</span>
-                </label>
-              </div>
+                  <small>Anyone on the internet can see this repository. You choose who can commit.</small>
+                </span>
+              </label>
 
-              <div className="radio-option">
-                <input
-                  type="radio"
-                  id="private"
-                  name="visibility"
-                  checked={isPublic === false}
-                  onChange={() => setIsPublic(false)}
-                />
-                <label htmlFor="private">
+              <label className="radio-option" htmlFor="private">
+                <input type="radio" id="private" name="visibility"
+                  checked={!isPublic} onChange={() => setIsPublic(false)} />
+                <span>
                   <strong>Private</strong>
-                  <span>You choose who can see and commit to this repository.</span>
-                </label>
-              </div>
+                  <small>You choose who can see and commit to this repository.</small>
+                </span>
+              </label>
             </div>
 
             <hr className="divider" />
 
-            <button type="submit" className="create-submit-btn">
-              Create repository
+            <button type="submit" className="btn btn-primary create-submit" disabled={submitting}>
+              {submitting ? "Creating…" : "Create repository"}
             </button>
           </form>
         </div>

@@ -1,125 +1,64 @@
-import React, { useState } from "react"; // CORRECTED: Removed unused useEffect
+import { useState } from "react";
 import axios from "axios";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../authContext";
-
-// CORRECTED: Removed Box from import as it no longer exists in Primer v36+
-import { PageHeader, Button } from "@primer/react";
-import "./auth.css";
-
+import { API_URL } from "../../config";
 import logo from "../../assets/github-mark-white.svg";
-import { Link, useNavigate } from "react-router-dom"; // CORRECTED: Imported useNavigate
+import "./auth.css";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Note: ensure 'setCurrentUser' matches exactly what you export in authContext.jsx
+  const [error, setError] = useState("");
   const { setCurrentUser } = useAuth();
-
-  // CORRECTED: Initialized useNavigate hook
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
+    setError("");
     try {
       setLoading(true);
-      const res = await axios.post("http://localhost:3000/signup", {
-        email: email,
-        password: password,
-        username: username,
-      });
-
+      const res = await axios.post(`${API_URL}/signup`, { email, password, username });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.userId);
-
       setCurrentUser(res.data.userId);
-      setLoading(false);
-
-      // CORRECTED: Replaced window.location.href with navigate("/") to prevent full page reload
       navigate("/");
     } catch (err) {
-      console.error(err);
-      alert("Signup Failed!");
+      setError(err.response?.data?.message || "Signup failed. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-wrapper">
-      <div className="login-logo-container">
-        <img className="logo-login" src={logo} alt="Logo" />
-      </div>
+    <div className="auth-page">
+      <img className="auth-logo" src={logo} alt="Git-Me" />
+      <h1 className="auth-title">Create your account</h1>
 
-      <div className="login-box-wrapper">
-        <div className="login-heading">
-          {/* CORRECTED: Replaced <Box> with a standard <div> to fix the Primer export error */}
-          <div style={{ padding: "8px" }}>
-            <PageHeader>
-              <PageHeader.TitleArea variant="large">
-                <PageHeader.Title>Sign Up</PageHeader.Title>
-              </PageHeader.TitleArea>
-            </PageHeader>
-          </div>
-        </div>
+      <form className="auth-card card" onSubmit={handleSignup}>
+        {error && <div className="auth-error" role="alert">{error}</div>}
 
-        <div className="login-box">
-          <div>
-            <label className="label">Username</label>
-            <input
-              autoComplete="off"
-              name="Username"
-              id="Username"
-              className="input"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
+        <label htmlFor="username">Username</label>
+        <input id="username" className="input" type="text" autoComplete="username" required
+          value={username} onChange={(e) => setUsername(e.target.value)} />
 
-          <div>
-            <label className="label">Email address</label>
-            <input
-              autoComplete="off"
-              name="Email"
-              id="Email"
-              className="input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+        <label htmlFor="email">Email address</label>
+        <input id="email" className="input" type="email" autoComplete="email" required
+          value={email} onChange={(e) => setEmail(e.target.value)} />
 
-          <div className="div">
-            <label className="label">Password</label>
-            <input
-              autoComplete="off"
-              name="Password"
-              id="Password"
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+        <label htmlFor="password">Password</label>
+        <input id="password" className="input" type="password" autoComplete="new-password" required minLength={6}
+          value={password} onChange={(e) => setPassword(e.target.value)} />
 
-          <Button
-            variant="primary"
-            className="login-btn"
-            disabled={loading}
-            onClick={handleSignup}
-          >
-            {loading ? "Loading..." : "Signup"}
-          </Button>
-        </div>
+        <button className="btn btn-primary btn-block" disabled={loading} type="submit">
+          {loading ? "Creating account…" : "Sign up"}
+        </button>
+      </form>
 
-        <div className="pass-box">
-          <p>
-            Already have an account? <Link to="/auth">Login</Link>
-          </p>
-        </div>
+      <div className="auth-alt card">
+        Already have an account? <Link to="/auth">Sign in</Link>
       </div>
     </div>
   );

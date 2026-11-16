@@ -25,21 +25,42 @@ async function addRepo(filePath) {
       // If .gitignore doesn't exist, we just quietly catch the error and move on
     }
 
+    // Helper function to safely copy files OR folders recursively
+    async function copyItem(src, dest) {
+      const itemName = path.basename(src);
+
+      // Double-check ignore list during recursion (protects inner folders)
+      if (ignoreList.includes(itemName)) {
+        return;
+      }
+
+      const stat = await fs.stat(src);
+
+      if (stat.isDirectory()) {
+        await fs.mkdir(dest, { recursive: true });
+        const items = await fs.readdir(src);
+
+        for (const item of items) {
+          await copyItem(path.join(src, item), path.join(dest, item));
+        }
+      } else {
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.copyFile(src, dest);
+        console.log(`File ${itemName} added to the staging area!`);
+      }
+    }
+
     if (filePath === ".") {
       const files = await fs.readdir(process.cwd());
 
       for (const file of files) {
         // 3. CHANGED: Now checks our comprehensive ignoreList before copying
         if (!ignoreList.includes(file)) {
-          const stat = await fs.stat(path.join(process.cwd(), file));
-
-          if (stat.isFile()) {
-            await fs.copyFile(
-              path.join(process.cwd(), file),
-              path.join(stagingPath, file),
-            );
-            console.log(`File ${file} added to the staging area!`);
-          }
+          // Call the recursive copy function instead of just copyFile
+          await copyItem(
+            path.join(process.cwd(), file),
+            path.join(stagingPath, file)
+          );
         }
       }
     } else {
@@ -48,13 +69,13 @@ async function addRepo(filePath) {
       // 4. NEW: Prevent manual adding of ignored files (e.g., node index.js add .env)
       if (ignoreList.includes(fileName)) {
         console.log(
-          `Error: Cannot add '${fileName}' because it is in your ignore list.`,
+          `Error: Cannot add '${fileName}' because it is in your ignore list.`
         );
         return;
       }
 
-      await fs.copyFile(filePath, path.join(stagingPath, fileName));
-      console.log(`File ${fileName} added to the staging area!`);
+      // Use recursive copyItem to allow adding specific folders like 'node index.js add src'
+      await copyItem(filePath, path.join(stagingPath, fileName));
     }
   } catch (err) {
     console.error("Error adding file : ", err);

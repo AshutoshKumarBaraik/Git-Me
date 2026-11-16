@@ -14,12 +14,20 @@ async function commitRepo(message) {
 
     const files = await fs.readdir(stagingPath);
     for (const file of files) {
-      await fs.copyFile(
-        path.join(stagingPath, file),
-        path.join(commitDir, file),
-      );
+      const srcPath = path.join(stagingPath, file);
+      const destPath = path.join(commitDir, file);
 
-      await fs.unlink(path.join(stagingPath, file));
+      const stat = await fs.stat(srcPath);
+
+      if (stat.isDirectory()) {
+        // Use recursive copy and remove for folders
+        await fs.cp(srcPath, destPath, { recursive: true });
+        await fs.rm(srcPath, { recursive: true, force: true });
+      } else {
+        // Keep your original copyFile and unlink for single files
+        await fs.copyFile(srcPath, destPath);
+        await fs.unlink(srcPath);
+      }
     }
 
     await fs.writeFile(

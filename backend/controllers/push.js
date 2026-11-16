@@ -2,6 +2,26 @@ const fs = require("fs").promises;
 const path = require("path");
 const { s3, S3_BUCKET } = require("../config/aws-config");
 
+// NEW: Helper function to recursively find all files in a folder
+async function getAllFiles(dirPath, arrayOfFiles = [], basePath = dirPath) {
+  const files = await fs.readdir(dirPath);
+
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file);
+    const stat = await fs.stat(fullPath);
+
+    if (stat.isDirectory()) {
+      // If it's a folder, search inside it
+      arrayOfFiles = await getAllFiles(fullPath, arrayOfFiles, basePath);
+    } else {
+      // If it's a file, save the absolute path (to read it) and relative path (for S3 key)
+      const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/');
+      arrayOfFiles.push({ absolute: fullPath, relative: relativePath });
+    }
+  }
+  return arrayOfFiles;
+}
+
 async function pushRepo() {
   const repoPath = path.resolve(process.cwd(), ".gitMe");
   const commitsPath = path.join(repoPath, "commits");
@@ -12,15 +32,9 @@ async function pushRepo() {
     const config = JSON.parse(configData);
 
     // 1. CHANGED: Extract remoteUrl instead of repoId
-    // FROM:
-    // TO: const remoteUrl = config.remoteUrl;
-    // WHY: We switched to 'remote add <url>' so end users never have to handle raw database IDs.
     const remoteUrl = config.remoteUrl;
 
     // 2. CHANGED: Graceful exit for local-only users
-    // FROM: if (!repositoryId) { console.error("No repository ID found..."); return; }
-    // TO: A standard Git-style message that doesn't treat the lack of a remote as a crash.
-    // WHY: This ensures a user can loop 'init', 'add', and 'commit' indefinitely offline without being forced to add a remote.
     if (!remoteUrl) {
       console.log("fatal: No remote configured.");
       console.log(
@@ -30,23 +44,25 @@ async function pushRepo() {
     }
 
     const commitDirs = await fs.readdir(commitsPath);
-
     const pushedCommits = [];
 
     for (const commitDir of commitDirs) {
       const commitPath = path.join(commitsPath, commitDir);
-      const files = await fs.readdir(commitPath);
+      
+      // CHANGED: Use recursive helper to get all nested files
+      const allFiles = await getAllFiles(commitPath);
 
       const commitData = {
         commitID: commitDir,
         files: [],
       };
 
-      for (const file of files) {
-        const filePath = path.join(commitPath, file);
-        const fileContent = await fs.readFile(filePath);
+      for (const fileObj of allFiles) {
+        // Read file using its absolute path
+        const fileContent = await fs.readFile(fileObj.absolute);
 
-        const s3Key = `commits/${commitDir}/${file}`;
+        // Use the relative path for S3 and MongoDB
+        const s3Key = `commits/${commitDir}/${fileObj.relative}`;
         const params = {
           Bucket: S3_BUCKET,
           Key: s3Key,
@@ -56,7 +72,7 @@ async function pushRepo() {
         await s3.upload(params).promise();
 
         commitData.files.push({
-          name: file,
+          name: fileObj.relative,
           s3Url: `https://${S3_BUCKET}.s3.amazonaws.com/${s3Key}`,
         });
       }
@@ -66,9 +82,6 @@ async function pushRepo() {
     console.log("All commits pushed to S3.");
 
     // 3. CHANGED: Send the PUT request directly to the remote URL
-    // FROM: fetch(`http://localhost:3000/repo/update/${repositoryId}`, { ... })
-    // TO: fetch(remoteUrl, { ... })
-    // WHY: The CLI now dynamically sends the update to exactly where the user pointed it during the 'remote add' command.
     const response = await fetch(remoteUrl, {
       method: "PUT",
       headers: {
@@ -85,7 +98,9 @@ async function pushRepo() {
         "MongoDB updated successfully! React can now see your files.",
       );
     } else {
-      console.error("Failed to update MongoDB.");
+      // NEW: Log the exact error message from the server
+      const errorText = await response.text();
+      console.error(`Failed to update MongoDB. Status: ${response.status}. Reason: ${errorText}`);
     }
   } catch (err) {
     console.error("Error pushing to S3 : ", err);

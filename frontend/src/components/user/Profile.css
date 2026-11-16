@@ -1,116 +1,53 @@
-.profile-page-wrapper {
-  display: flex;
-  min-height: 100vh;
-  color: whitesmoke;
-  width: 100%;
-  /* flex-wrap: wrap; */
+.profile-page {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
 }
 
-.user-profile-section {
-  width: 250px;
-  /* min-height: 100vh; */
-  display: flex;
-  flex-direction: column;
-  padding: 40px 10px;
-}
-
-.user-repo-section {
-  margin: 0px auto;
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.user-name {
-  /* width: 250px; */
-  margin: 10px 20px 10px 10px;
-  /* margin: 10px auto; */
-}
+.user-profile-section { display: flex; flex-direction: column; gap: 12px; }
 
 .profile-image {
-  margin: 10px auto;
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background-color: grey;
-}
-
-.follow-btn {
-  background-color: #20272d;
-  width: 250px;
-  margin: 10px auto;
-  height: 40px;
-  border-radius: 10px;
-  color: whitesmoke;
-}
-
-.follower {
-  display: flex;
-  justify-content: center;
-  width: 250px;
-  height: 30px;
-  gap: 10px;
-  margin: 10px auto;
-}
-
-.repo-card-wrapper {
-  margin: 0 auto;
   width: 100%;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 40px 20px;
+  max-width: 220px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1f6feb, #a371f7);
+  display: grid;
+  place-items: center;
+  font-size: 72px;
+  font-weight: 600;
+  color: #fff;
+  border: 1px solid var(--border);
 }
 
-.repo {
-  border: 0.5px solid grey;
-  border-radius: 10px;
-  width: 400px;
-  height: 210px;
-  padding: 20px 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+.profile-name { font-size: 24px; margin: 4px 0 0; overflow-wrap: anywhere; }
+.profile-email { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.follower { display: flex; gap: 8px; font-size: 14px; }
+.follower strong { color: var(--text); }
+
+.heatmap-box { padding: 16px; margin-bottom: 24px; }
+.heatmap-box h4 { font-size: 14px; }
+.heatmap-scroll { overflow-x: auto; }
+
+.section-title { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+
+.repo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.repo { padding: 16px; }
+.repo-card-top { display: flex; align-items: center; gap: 10px; }
+.repo-name { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.description { color: var(--text-muted); font-size: 13px; margin: 8px 0 0; }
+
+.pill {
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 2em;
+  padding: 0 8px;
+  line-height: 18px;
 }
 
-.repo-name {
-  cursor: pointer;
-  color: #408ced;
-  font-size: 20px;
-}
-
-.description {
-  color: grey;
-  font-size: 15px;
-}
-
-@media screen and (max-width: 750px) {
-  .repo {
-    width: 100%;
-  }
-}
-
-@media screen and (max-width: 570px) {
-  .user-profile-section {
-    margin: auto;
-  }
-
-  .profile-page-wrapper {
-    display: block;
-  }
-}
-
-#logout:hover {
-  border: 1px solid white;
-}
-
-/* Force Primer React UnderlineNav links to be whitesmoke */
-nav[aria-label="Repository"] a,
-nav[aria-label="Repository"] span,
-nav[aria-label="Repository"] svg {
-  color: whitesmoke !important;
-}
-
-nav[aria-label="Repository"] a:hover {
-  text-decoration: underline;
+@media (max-width: 800px) {
+  .profile-page { grid-template-columns: minmax(0, 1fr); }
+  .profile-image { max-width: 120px; font-size: 48px; }
 }

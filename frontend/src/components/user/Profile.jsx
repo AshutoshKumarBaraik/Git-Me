@@ -1,104 +1,73 @@
-import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
-import "./profile.css";
 import Navbar from "../Navbar";
-import { UnderlineNav } from "@primer/react";
-import { BookIcon, RepoIcon } from "@primer/octicons-react";
 import HeatMapProfile from "./HeatMap";
 import { useAuth } from "../../authContext";
+import { API_URL } from "../../config";
+import "./Profile.css";
 
 const Profile = () => {
-  const navigate = useNavigate();
   const [userDetails, setUserDetails] = useState({ username: "username" });
+  const [repos, setRepos] = useState([]);
   const { setCurrentUser } = useAuth();
 
   useEffect(() => {
-    const fetchUserDetails = async () => {
-      const userId = localStorage.getItem("userId");
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
 
-      if (userId) {
-        try {
-          const response = await axios.get(
-            `http://localhost:3000/userProfile/${userId}`
-          );
-          setUserDetails(response.data);
-        } catch (err) {
-          console.error("Cannot fetch user details: ", err);
-        }
-      }
-    };
-    fetchUserDetails();
+    axios
+      .get(`${API_URL}/userProfile/${userId}`)
+      .then((res) => setUserDetails(res.data))
+      .catch((err) => console.error("Cannot fetch user details:", err));
+
+    axios
+      .get(`${API_URL}/repo/user/${userId}`)
+      .then((res) => setRepos(res.data.repositories || []))
+      .catch(() => setRepos([]));
   }, []);
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    setCurrentUser(null);
+    window.location.href = "/auth";
+  };
 
   return (
     <>
       <Navbar />
-      <UnderlineNav aria-label="Repository">
-        <UnderlineNav.Item
-          aria-current="page"
-          icon={BookIcon}
-          sx={{
-            backgroundColor: "transparent",
-            color: "white",
-            "&:hover": {
-              textDecoration: "underline",
-              color: "white",
-            },
-          }}
-        >
-          Overview
-        </UnderlineNav.Item>
-
-        <UnderlineNav.Item
-          onClick={() => navigate("/repo")}
-          icon={RepoIcon}
-          sx={{
-            backgroundColor: "transparent",
-            color: "whitesmoke",
-            "&:hover": {
-              textDecoration: "underline",
-              color: "white",
-            },
-          }}
-        >
-          Starred Repositories
-        </UnderlineNav.Item>
-      </UnderlineNav>
-
-      <button
-        onClick={() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("userId");
-          setCurrentUser(null);
-
-          window.location.href = "/auth";
-        }}
-        style={{ position: "fixed", bottom: "50px", right: "50px" }}
-        id="logout"
-      >
-        Logout
-      </button>
-
-      <div className="profile-page-wrapper">
-        <div className="user-profile-section">
-          <div className="profile-image"></div>
-
-          <div className="name">
-            <h3>{userDetails.username}</h3>
+      <div className="page profile-page">
+        <aside className="user-profile-section">
+          <div className="profile-image">{userDetails.username?.[0]?.toUpperCase()}</div>
+          <h2 className="profile-name">{userDetails.username}</h2>
+          <p className="muted profile-email">{userDetails.email}</p>
+          <button className="btn btn-block">Follow</button>
+          <div className="follower muted">
+            <span><strong>10</strong> followers</span>
+            <span>·</span>
+            <span><strong>3</strong> following</span>
           </div>
+          <button className="btn btn-danger btn-block" onClick={logout}>Log out</button>
+        </aside>
 
-          <button className="follow-btn">Follow</button>
-
-          <div className="follower">
-            <p>10 Follower</p>
-            <p>3 Following</p>
-          </div>
-        </div>
-
-        <div className="heat-map-section">
+        <section className="profile-main">
           <HeatMapProfile />
-        </div>
+
+          <h3 className="section-title">Repositories <span className="pill">{repos.length}</span></h3>
+          <div className="repo-grid">
+            {repos.length === 0 && <p className="muted">No repositories yet.</p>}
+            {repos.map((repo) => (
+              <div className="repo card" key={repo._id}>
+                <div className="repo-card-top">
+                  <Link to={`/repo/${repo._id}`} className="repo-name">{repo.name}</Link>
+                  <span className="pill">{repo.visibility ? "Public" : "Private"}</span>
+                </div>
+                <p className="description">{repo.description || "No description provided."}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );

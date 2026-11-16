@@ -1,5 +1,73 @@
-#dashboard {
+.dashboard {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+.dash-side { padding: 16px; }
+.dash-side h3 { font-size: 14px; margin-bottom: 12px; }
+.small { font-size: 13px; }
+
+.dash-head {
   display: flex;
-  width: 1080px;
+  align-items: center;
   justify-content: space-between;
+  margin-bottom: 12px;
+}
+.dash-head h2 { margin: 0; font-size: 20px; }
+
+.repo-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+
+.repo-card { padding: 16px; transition: border-color 0.15s; }
+.repo-card:hover { border-color: #8b949e; }
+.repo-card p { margin: 6px 0 0; }
+.repo-card-top { display: flex; align-items: center; gap: 10px; }
+.repo-card-name { font-size: 16px; font-weight: 600; }
+
+.pill {
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 2em;
+  padding: 0 8px;
+  line-height: 18px;
+}
+
+.repo-link {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.repo-link:last-child { border-bottom: none; }
+.repo-link:hover { text-decoration: none; }
+.repo-link:hover .repo-link-name { color: var(--accent); }
+.repo-link-name { display: block; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.repo-link-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.events { list-style: none; margin: 0; padding: 0; }
+.events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.events li:last-child { border-bottom: none; }
+.events span { color: var(--text-muted); }
+
+.empty { padding: 32px; text-align: center; }
+
+@media (max-width: 1024px) {
+  .dashboard { grid-template-columns: minmax(0, 1fr); }
+  .dash-main { order: -1; }
 }

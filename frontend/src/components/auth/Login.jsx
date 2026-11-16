@@ -1,105 +1,59 @@
-import React, { useState } from "react"; // CORRECTED: Removed unused useEffect
+import { useState } from "react";
 import axios from "axios";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../authContext";
-
-// CORRECTED: Combined PageHeader into main import and removed Box (removed from Primer v36+)
-import { PageHeader, Button } from "@primer/react";
-import "./auth.css";
-
+import { API_URL } from "../../config";
 import logo from "../../assets/github-mark-white.svg";
-import { Link, useNavigate } from "react-router-dom"; // CORRECTED: Imported useNavigate
+import "./auth.css";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { setCurrentUser } = useAuth();
-
-  // CORRECTED: Initialized the useNavigate hook
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
+    setError("");
     try {
       setLoading(true);
-      const res = await axios.post("http://localhost:3000/login", {
-        email: email,
-        password: password,
-      });
-
+      const res = await axios.post(`${API_URL}/login`, { email, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.userId);
-
       setCurrentUser(res.data.userId);
-      setLoading(false);
-
-      // CORRECTED: Replaced window.location.href with navigate to prevent page reload
       navigate("/");
     } catch (err) {
-      console.error(err);
-      alert("Login Failed!");
+      setError(err.response?.data?.message || "Login failed. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-wrapper">
-      <div className="login-logo-container">
-        <img className="logo-login" src={logo} alt="Logo" />
-      </div>
+    <div className="auth-page">
+      <img className="auth-logo" src={logo} alt="Git-Me" />
+      <h1 className="auth-title">Sign in to Git-Me</h1>
 
-      <div className="login-box-wrapper">
-        <div className="login-heading">
-          {/* CORRECTED: Replaced <Box> with a standard <div> */}
-          <div style={{ padding: "8px" }}>
-            <PageHeader>
-              <PageHeader.TitleArea variant="large">
-                <PageHeader.Title>Sign In</PageHeader.Title>
-              </PageHeader.TitleArea>
-            </PageHeader>
-          </div>
-        </div>
-        <div className="login-box">
-          <div>
-            <label className="label">Email address</label>
-            <input
-              autoComplete="off"
-              name="Email"
-              id="Email"
-              className="input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="div">
-            <label className="label">Password</label>
-            <input
-              autoComplete="off"
-              name="Password"
-              id="Password"
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+      <form className="auth-card card" onSubmit={handleLogin}>
+        {error && <div className="auth-error" role="alert">{error}</div>}
 
-          <Button
-            variant="primary"
-            className="login-btn"
-            disabled={loading}
-            onClick={handleLogin}
-          >
-            {loading ? "Loading..." : "Login"}
-          </Button>
-        </div>
-        <div className="pass-box">
-          <p>
-            New to GitHub? <Link to="/signup">Create an account</Link>
-          </p>
-        </div>
+        <label htmlFor="email">Email address</label>
+        <input id="email" className="input" type="email" autoComplete="email" required
+          value={email} onChange={(e) => setEmail(e.target.value)} />
+
+        <label htmlFor="password">Password</label>
+        <input id="password" className="input" type="password" autoComplete="current-password" required
+          value={password} onChange={(e) => setPassword(e.target.value)} />
+
+        <button className="btn btn-primary btn-block" disabled={loading} type="submit">
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+
+      <div className="auth-alt card">
+        New to Git-Me? <Link to="/signup">Create an account</Link>
       </div>
     </div>
   );
